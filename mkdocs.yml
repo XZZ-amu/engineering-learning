@@ -1,44 +1,41 @@
 site_name: 工程知识学习
 site_url: https://xzz-amu.github.io/engineering-learning/
 site_description: 为产品设计师定制的工程基础教材
-
 theme:
   name: material
   language: zh
   palette:
-    - scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
-        name: 切换到深色模式
-    - scheme: slate
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-4
-        name: 切换到浅色模式
+  - scheme: default
+    primary: indigo
+    accent: indigo
+    toggle:
+      icon: material/brightness-7
+      name: 切换到深色模式
+  - scheme: slate
+    primary: indigo
+    accent: indigo
+    toggle:
+      icon: material/brightness-4
+      name: 切换到浅色模式
   features:
-    - navigation.instant
-    - navigation.tabs
-    - navigation.top
-    - toc.follow
-    - search.suggest
-
+  - navigation.instant
+  - navigation.tabs
+  - navigation.top
+  - toc.follow
+  - search.suggest
 markdown_extensions:
-  - admonition
-  - pymdownx.details
-  - pymdownx.superfences
-  - pymdownx.highlight:
-      anchor_linenums: true
-  - pymdownx.inlinehilite
-  - toc:
-      permalink: true
-
+- admonition
+- pymdownx.details
+- pymdownx.superfences
+- pymdownx.highlight:
+    anchor_linenums: true
+- pymdownx.inlinehilite
+- toc:
+    permalink: true
 nav:
-  - 首页: index.md
-  - 教案:
-    - chapters/p0-api-design.md
-    - chapters/p0-database-basics.md
-    - chapters/p0-network-protocols.md
-    - chapters/p0-auth-and-permissions.md
+- 首页: index.md
+- 教案:
+  - 'P0-1: API 设计 — 前后端怎么"对话"': chapters/chapter-01.md
+  - P0-2：数据库基础 — 数据怎么存、怎么查，为什么有的查询慢得要命: chapters/chapter-02.md
+  - 'P0-3: 网络协议 — 一个请求的完整旅程': chapters/chapter-03.md
+  - 'P0-4: 认证与权限 — 登录机制、Token/Session、OAuth、RBAC': chapters/chapter-04.md
