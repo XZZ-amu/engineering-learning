@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""扫描 GitHub Issues 中带 '待生成' label 的 Issue，调用 Claude API 生成教案。"""
+"""扫描 GitHub Issues 中带 '待生成' label 的 Issue，调用 Claude API 生成教案，push 并通知。"""
 
-import os
 import json
 import subprocess
 from pathlib import Path
@@ -10,8 +9,11 @@ from anthropic import Anthropic
 REPO = "XZZ-amu/engineering-learning"
 LABEL_PENDING = "待生成"
 LABEL_DONE = "已生成"
-CHAPTERS_DIR = Path("docs/chapters")
-PROMPTS_DIR = Path("prompts")
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+CHAPTERS_DIR = PROJECT_DIR / "docs" / "chapters"
+PROMPTS_DIR = PROJECT_DIR / "prompts"
+FEISHU_WEBHOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/b7c73c1a-bd24-483d-884b-a9dd256f9eb9"
+SITE_BASE_URL = "https://xzz-amu.github.io/engineering-learning"
 
 
 def get_pending_issues():
@@ -26,7 +28,11 @@ def get_pending_issues():
 
 def generate_chapter(issue: dict) -> str:
     """调用 Claude API 生成教案内容。"""
-    client = Anthropic()
+    import os
+    client = Anthropic(
+        api_key=os.environ.get("ANTHROPIC_AUTH_TOKEN", os.environ.get("ANTHROPIC_API_KEY")),
+        base_url=os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
+    )
     system_prompt = (PROMPTS_DIR / "chapter-system-prompt.md").read_text()
 
     user_message = f"""请为以下知识点生成一篇教案：
@@ -39,7 +45,7 @@ def generate_chapter(issue: dict) -> str:
 """
 
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=os.environ.get("ANTHROPIC_DEFAULT_SONNET_MODEL", "claude-sonnet-4-6"),
         max_tokens=4096,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}]
@@ -67,7 +73,7 @@ def update_issue_label(issue_number: int):
 
 def comment_on_issue(issue_number: int, filepath: Path):
     """在 Issue 上 comment 通知教案已生成。"""
-    site_url = f"https://xzz-amu.github.io/engineering-learning/chapters/{filepath.stem}/"
+    site_url = f"{SITE_BASE_URL}/chapters/{filepath.stem}/"
     comment = f"教案已生成！\n\n[点击阅读]({site_url})"
     subprocess.run(
         ["gh", "issue", "comment", str(issue_number), "--repo", REPO, "--body", comment],
@@ -83,7 +89,7 @@ def update_mkdocs_nav():
     if not chapters:
         return
 
-    mkdocs_path = Path("mkdocs.yml")
+    mkdocs_path = PROJECT_DIR / "mkdocs.yml"
     with open(mkdocs_path) as f:
         config = yaml.safe_load(f)
 
@@ -104,15 +110,80 @@ def update_mkdocs_nav():
         yaml.dump(config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
 
+def git_push():
+    """Commit 并 push 生成的教案。"""
+    subprocess.run(["git", "add", "docs/chapters/", "mkdocs.yml"], cwd=PROJECT_DIR, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "docs: auto-generate chapters"],
+        cwd=PROJECT_DIR, check=True
+    )
+    subprocess.run(["git", "push"], cwd=PROJECT_DIR, check=True)
+
+
+def send_feishu_notification(generated: list):
+    """发送飞书通知。"""
+    import requests
+
+    if not generated:
+        return
+
+    chapter_lines = []
+    for ch in generated:
+        title = ch["title"]
+        stem = Path(ch["path"]).stem
+        url = f"{SITE_BASE_URL}/chapters/{stem}/"
+        chapter_lines.append(f"[{title}]({url})")
+
+    content = "\n".join(chapter_lines)
+
+    payload = {
+        "msg_type": "interactive",
+        "card": {
+            "header": {
+                "title": {"tag": "plain_text", "content": "新教案已就绪"},
+                "template": "blue"
+            },
+            "elements": [
+                {
+                    "tag": "markdown",
+                    "content": f"今日教案已生成（共 {len(generated)} 篇）\n\n{content}"
+                },
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "打开学习网站"},
+                            "url": SITE_BASE_URL,
+                            "type": "primary"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    resp = requests.post(FEISHU_WEBHOOK_URL, json=payload)
+    if resp.status_code == 200:
+        result = resp.json()
+        if result.get("code") == 0:
+            print("飞书通知发送成功")
+        else:
+            print(f"飞书通知发送失败: {result}")
+    else:
+        print(f"飞书通知发送失败: {resp.status_code} {resp.text}")
+
+
 def main():
     issues = get_pending_issues()
     if not issues:
-        print("没有待生成的 Issue")
+        print("没有待生成的 Issue，跳过。")
         return
 
+    print(f"发现 {len(issues)} 个待生成的 Issue，开始生成...")
     generated = []
     for issue in issues:
-        print(f"正在生成: {issue['title']}...")
+        print(f"  正在生成: {issue['title']}...")
         content = generate_chapter(issue)
         filepath = save_chapter(issue, content)
         update_issue_label(issue["number"])
@@ -121,13 +192,9 @@ def main():
         print(f"  完成: {filepath}")
 
     update_mkdocs_nav()
-
-    # 输出生成结果供后续步骤使用
-    output_file = os.environ.get("GITHUB_OUTPUT")
-    if output_file:
-        with open(output_file, "a") as f:
-            f.write(f"generated={json.dumps(generated, ensure_ascii=False)}\n")
-            f.write(f"count={len(generated)}\n")
+    git_push()
+    send_feishu_notification(generated)
+    print(f"\n全部完成！共生成 {len(generated)} 篇教案，已 push 并发送飞书通知。")
 
 
 if __name__ == "__main__":

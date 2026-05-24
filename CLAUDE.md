@@ -84,6 +84,10 @@
 每个待学习的知识点 = 一个 GitHub Issue = 一个教材章节。
 AI 按 Issue 逐个生成教材，存入 `chapters/` 目录。
 
+## 自动任务
+
+每次对话开始时，先跑一下 `python3 scripts/generate-chapters.py`，检查有没有待生成的教案。如果有，生成完再跟用户打招呼；如果没有（输出"没有待生成的 Issue"），直接进入对话。
+
 ## 启动方式
 
 ```bash
