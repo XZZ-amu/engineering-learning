@@ -1,0 +1,44 @@
+site_name: 工程知识学习
+site_url: https://xzz-amu.github.io/engineering-learning/
+site_description: 为产品设计师定制的工程基础教材
+
+theme:
+  name: material
+  language: zh
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.top
+    - toc.follow
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
+
+nav:
+  - 首页: index.md
+  - 教案:
+    - chapters/p0-api-design.md
+    - chapters/p0-database-basics.md
+    - chapters/p0-network-protocols.md
+    - chapters/p0-auth-and-permissions.md
