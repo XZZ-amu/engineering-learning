@@ -23,7 +23,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install anthropic requests
+        run: pip install anthropic requests pyyaml
 
       - name: Generate chapters
         id: gen
@@ -38,7 +38,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/chapters/ mkdocs.yml
-          git commit -m "docs: auto-generate chapters [skip ci]" || echo "No changes to commit"
+          git commit -m "docs: auto-generate chapters" || echo "No changes to commit"
           git push
 
   notify:

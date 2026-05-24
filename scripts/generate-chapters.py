@@ -75,6 +75,35 @@ def comment_on_issue(issue_number: int, filepath: Path):
     )
 
 
+def update_mkdocs_nav():
+    """扫描 docs/chapters/ 目录，自动更新 mkdocs.yml 的 nav 配置。"""
+    import yaml
+
+    chapters = sorted(CHAPTERS_DIR.glob("*.md"))
+    if not chapters:
+        return
+
+    mkdocs_path = Path("mkdocs.yml")
+    with open(mkdocs_path) as f:
+        config = yaml.safe_load(f)
+
+    chapter_nav = []
+    for ch in chapters:
+        if ch.name == ".gitkeep":
+            continue
+        first_line = ch.read_text(encoding="utf-8").split("\n")[0]
+        title = first_line.lstrip("# ").strip() if first_line.startswith("#") else ch.stem
+        chapter_nav.append({title: f"chapters/{ch.name}"})
+
+    config["nav"] = [
+        {"首页": "index.md"},
+        {"教案": chapter_nav}
+    ]
+
+    with open(mkdocs_path, "w") as f:
+        yaml.dump(config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+
 def main():
     issues = get_pending_issues()
     if not issues:
@@ -90,6 +119,8 @@ def main():
         comment_on_issue(issue["number"], filepath)
         generated.append({"title": issue["title"], "path": str(filepath)})
         print(f"  完成: {filepath}")
+
+    update_mkdocs_nav()
 
     # 输出生成结果供后续步骤使用
     output_file = os.environ.get("GITHUB_OUTPUT")
