@@ -41,16 +41,15 @@ extra_css:
 - stylesheets/interactive.css
 nav:
 - 首页: index.md
-- 参考项目: references.md
 - 教案:
-  - 'P0-1: 异步任务与队列': chapters/chapter-05.md
-  - API 设计：让两个程序能对话的合约: chapters/chapter-06.md
-  - 文件与存储：图片从生成到用户看到，中间发生了什么: chapters/chapter-07.md
+  - 异步任务与队列：用户点了"生成"按钮，然后呢？: chapters/chapter-05.md
+  - API 设计：让两个系统能说上话: chapters/chapter-06.md
+  - P0-3：文件与存储 — 图片/视频从产生到用户看到: chapters/chapter-07.md
   - P0-4：前端状态与数据流（React）: chapters/chapter-08.md
-  - 'P1-1: AI 工程基础 — 模型调用、Prompt 结构、采样参数、工作流': chapters/chapter-09.md
-  - 数据库基础：数据是怎么被"放好"和"找到"的: chapters/chapter-10.md
-  - P1-3：认证与付费——登录、Token、OAuth、计费、订阅: chapters/chapter-11.md
-  - 'P1-4: WebSocket 与实时通信': chapters/chapter-12.md
+  - 'P1-1: AI 工程基础 — 模型调用、prompt 结构、采样参数、工作流': chapters/chapter-09.md
+  - 数据库基础：SQL vs NoSQL、表结构、查询、索引: chapters/chapter-10.md
+  - 认证与付费：让系统认识你，让用户放心付钱: chapters/chapter-11.md
+  - WebSocket 与实时通信: chapters/chapter-12.md
   - P2-1：系统设计 — 从零画出 AI 创作产品的技术蓝图: chapters/chapter-13.md
   - P2-2：性能与体验优化: chapters/chapter-14.md
-  - P2-3：安全基础 — 内容安全、API 防滥用、用户数据保护: chapters/chapter-15.md
+  - 安全基础：AI 创作产品不是单纯的创作工具: chapters/chapter-15.md

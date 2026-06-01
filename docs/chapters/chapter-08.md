@@ -2,239 +2,279 @@
 
 ## 1. 一句话本质
 
-**React 在解决一个根本问题：UI 是状态的函数——当状态变了，界面自动跟着变，而不是你手动去改每一个 DOM 节点。**
+**React 在解决一个问题：UI 是状态的函数——当状态变了，界面自动跟着变，而不是手动操纵每个 DOM 节点。**
 
-用公式写就是：`UI = f(state)`。理解这句话，后面所有概念都是它的推论。
+这句话推导出一切：
+
+- 有状态，所以需要 State
+- 状态从外面传进来，所以需要 Props
+- 状态变化要可预测，所以需要单向数据流
+- 状态要复用逻辑，所以需要 Hooks
+- 状态要跨组件共享，所以需要状态管理方案
 
 ---
 
 ## 2. 为什么必须这样
 
-假设 Mindloop 有一个"生成进度"界面：用户点击生成，出现 loading 圈，进度到 50% 显示进度条，完成后显示图片，失败了显示报错。
+假设没有 React，你手动写 JS 操纵 DOM：
 
-如果没有"状态驱动 UI"的思路，你要这么写：
 ```js
-// 手动操控 DOM：找到元素、改它、再找下一个、再改……
-document.getElementById('spinner').style.display = 'block'
-document.getElementById('progress').innerText = '50%'
-document.getElementById('result').style.display = 'none'
+// 用户改了模型选择 → 你要手动找到 N 个地方去更新
+document.getElementById('model-label').innerText = newModel
+document.getElementById('cost-display').innerText = calcCost(newModel)
+document.getElementById('submit-btn').disabled = isLoading
+// ……每次状态变化，你要记住所有要更新的地方
 ```
 
-四个状态切换，你要手动追踪每一个元素在每一个时机的状态。如果你漏了一个 `display = 'none'`，就 bug 了。而且状态越多，组合爆炸——10 个 UI 元素、5 种状态，你根本管不住。
+漏掉一个，界面就不一致。随着产品功能增加，这个"记忆负担"以平方速度增长。
 
-React 的解法是：**你只管状态，界面由状态推导出来。** 状态对了，界面自然对。
+React 的回答是：**别管怎么更新，告诉我"现在的状态是什么"，我来决定界面长什么样。**
+
+状态变了，React 重新跑一次渲染函数，界面自动对齐。你只需要管好状态，不需要管 DOM。
 
 ---
 
 ## 3. 概念地图
 
 ```
-UI = f(state) ← 根本逻辑
-│
-├── 状态在哪里？
-│   ├── 组件内部 → State（useState）
-│   └── 从父组件传入 → Props
-│
-├── 状态怎么流动？
-│   └── 单向数据流：父 → 子（Props 传下去，事件冒上来）
-│
-├── 状态变了，UI 怎么更新？
-│   └── 重新渲染（render）→ React 自动 diff，只改有变化的部分
-│
-├── 状态以外的"副作用"怎么处理？
-│   └── Hooks（useEffect / useCallback / useMemo）
-│
-└── 状态需要很多组件共享怎么办？
-    ├── 轻量 → Context
-    ├── 中量 → Zustand
-    └── 重量 → Redux
+                    UI = f(state)
+                         │
+        ┌────────────────┼─────────────────┐
+        │                │                 │
+    状态从哪来        状态怎么变         状态放哪里
+        │                │                 │
+   Props（外部）    useState / Hooks    本地 vs 全局
+   State（内部）    useEffect（副作用）      │
+        │                │          ┌──────┴──────┐
+        └────────────────┘       Context      Zustand/Redux
+                │
+        单向数据流（父 → 子）
+                │
+        组件树（积木拼装）
+                │
+        ┌───────┴────────┐
+    条件渲染           列表渲染
+    受控表单           异步状态
 ```
 
-这张图说明：所有概念不是并列的，它们是从同一个根问题"状态变了 UI 怎么跟着变"长出来的不同分支。
+这些概念不是并列的功能清单，而是同一个问题（管理状态驱动界面）在不同子场景下的解法。
 
 ---
 
 ## 4. 逐个概念深入
 
-### 组件：UI 的最小单位
+### 组件：UI 的最小独立单位
 
-把 Mindloop 的参数面板想象成乐高：`<PromptInput>`、`<ModelSelector>`、`<SizeSlider>` 各自独立，拼在一起组成 `<GeneratePanel>`。
+组件就是一个函数：吃进去 Props，吐出来 JSX。
 
-**为什么拆？** 不拆的话，一个组件几百行，改一个 slider 要在几百行里找到它，而且改坏了会影响旁边的东西。拆开之后，每个组件只关心自己的状态和 UI，改 slider 就只进 `<SizeSlider>`。
+```jsx
+function ModelSelector({ value, onChange }) {
+  return <select value={value} onChange={e => onChange(e.target.value)}>...</select>
+}
+```
 
-**拆的标准**：一个组件做一件事。能独立复用、独立测试，就拆对了。
+**为什么是函数而不是类？** 因为"UI 是状态的函数"这个比喻用函数表达最直接，没有隐藏状态，输入确定输出就确定。
+
+**拆组件的判断标准**：这块逻辑/UI 会在别处复用吗？这块状态跟其他状态是否独立？是就拆。Mindloop 里的 PromptInput、ModelSelector、SizeSlider 都是独立积木，因为它们各自管自己的事。
 
 ---
 
-### Props vs State：外面给的 vs 自己管的
+### Props vs State：外部合同 vs 内部记忆
 
-| | Props | State |
-|---|---|---|
-| 谁控制 | 父组件传入 | 组件自己 |
-| 能改吗 | 不能（只读） | 能（用 setState）|
-| 类比 | 函数的参数 | 函数内部的变量 |
+- **Props**：父组件传进来的，组件自己不能改。像函数参数。
+- **State**：组件内部管理的，可以改，改了就重渲染。像函数内的局部变量（但会被记住）。
 
-Mindloop 参数面板里：`modelName="GPT-4"` 是 Props（父组件选好了传进来），`isExpanded` 是 State（面板自己知道自己有没有展开）。
+关键判断：**这个数据的"所有权"在哪里？**
 
-**判断方法**：这个数据需要被外部控制吗？需要 → Props。只有组件自己关心 → State。
+Mindloop 参数面板：`currentModel` 的所有权在父组件（因为生成按钮也需要它），所以用 Props 传给 ModelSelector。但 ModelSelector 内部的 `isDropdownOpen` 只有它自己关心，放 State。
 
 ---
 
 ### 单向数据流：为什么数据只能从上往下
 
-React 规定：数据只能从父组件通过 Props 流向子组件，子组件想改父组件的数据，只能通过"父组件传下来的回调函数"往上通知。
+如果允许子组件直接修改父组件的状态，那状态可以从任意方向流动，你就不知道一个状态是被谁改的——调试变成噩梦。
+
+React 的规矩：**数据向下流（Props），事件向上传（回调函数）。**
 
 ```
-父组件（持有 state）
-  ↓ props 传下去
-子组件（只读 props）
-  ↑ 调用 onXxx() 往上通知
+父组件（持有 model 状态）
+    │ props: value={model}
+    ▼
+ModelSelector
+    │ 用户选了新模型
+    │ props: onChange={setModel}  ← 调用父给的回调
+    ▲
+父组件更新状态 → 重新渲染子组件
 ```
 
-**为什么不能双向流？** 如果子组件能直接改父组件的 state，一个 state 被多处改，你根本不知道是谁改的，bug 追不到。单向流意味着：状态的唯一来源（source of truth）在上面，谁改了它，一定是通过显式的函数调用，可追溯。
+看起来绕，但带来了可预测性：状态改变一定是从回调触发的，顺着回调就能找到原因。
 
 ---
 
-### 渲染：状态变了发生什么
+### Hooks：复用状态逻辑的方式
 
-`useState` 的 `setState` 触发重新渲染，React 重新执行组件函数，生成新的 UI 描述，再跟上一次对比（diff），只把有差异的地方更新到真实 DOM。
-
-你不需要理解 diff 算法的细节。你只需要知道：**状态变 → 组件函数重跑 → React 帮你更新界面**。这是 React 的核心契约。
-
----
-
-### Hooks：状态之外的问题
-
-`useState` 管状态，但有些事不是"状态"，是"副作用"——比如请求接口、订阅事件、操作 DOM。这些不能放在渲染逻辑里，否则每次重新渲染都会触发。Hooks 是 React 提供的"副作用接入口"。
-
-**useEffect**：在渲染完成后执行某件事。
-```js
-useEffect(() => {
-  fetch('/api/generate') // 渲染完再请求，不阻塞界面
-}, [taskId]) // taskId 变了才重新执行
-```
-第二个参数是依赖数组——"只有这些值变了，才重跑这个副作用"。空数组 `[]` = 只跑一次（组件挂载时）。
-
-**useMemo / useCallback**：性能优化工具，不是必须一开始就用。
-- `useMemo`：缓存一个计算结果，避免每次渲染重算
-- `useCallback`：缓存一个函数引用，避免每次渲染生成新函数
-
-**什么时候用它们？** 先不用，遇到明显性能问题再加。过早优化是噪音。
-
----
-
-### 状态该放哪里：本地 vs 全局
-
-这是最核心的判断题。
-
-**判断逻辑**：
-```
-这个状态只有一个组件需要？→ 放在本地（useState）
-两三个相邻组件需要？→ 提升到共同父组件（state lifting）
-很多不相关的组件都需要？→ 全局状态管理
-```
-
-Mindloop 的例子：
-- 参数面板的"是否展开"→ 本地 State（只有面板自己关心）
-- 当前生成任务的进度 → 全局（参数面板、进度条、画廊都要知道）
-- 用户登录信息 → 全局（几乎所有地方都用到）
-
-**全局方案怎么选：**
-
-| 方案 | 适合场景 | 代价 |
-|---|---|---|
-| Context | 低频变化的全局数据（主题、用户信息） | 性能差，Context 变了所有订阅者重渲染 |
-| Zustand | 中等复杂度、高频变化的状态 | 几乎没有，轻量好用 |
-| Redux | 超复杂、需要时间旅行调试、大团队协作 | 模板代码多，上手成本高 |
-
-**Mindloop 用什么？** Zustand。生成任务状态、图片库状态、用户设置——这些跨组件共享、会频繁变化，Zustand 刚好合适。Context 放主题颜色、语言这种不常变的配置。
-
----
-
-### 条件渲染和列表渲染
-
-这两个直接从"UI = f(state)"推导出来，不是新概念。
+**useState** — 给组件一块内部记忆
 
 ```jsx
-// 条件渲染：状态不同，UI 不同
-{status === 'loading' && <Spinner />}
-{status === 'success' && <ImageResult src={result} />}
-{status === 'error' && <ErrorMessage msg={error} />}
-
-// 列表渲染：数据是数组，UI 也是数组
-{images.map(img => <ImageCard key={img.id} src={img.url} />)}
+const [isLoading, setIsLoading] = useState(false)
+// 点击生成 → setIsLoading(true) → 组件重渲染 → 显示进度条
 ```
 
-`key` 不能漏：React 靠 key 判断列表里哪个元素是新的、哪个是旧的。用 `index` 当 key 会在重排序时出 bug，用数据的唯一 ID。
+**useEffect** — 处理"有副作用的事"（不是渲染本身，而是渲染之后要做的事）
+
+```jsx
+useEffect(() => {
+  fetchGenerationStatus(taskId)  // 轮询生成进度
+}, [taskId])  // taskId 变了才重新执行
+```
+
+依赖数组是关键：告诉 React "只在这些值变化时重新跑副作用"。忘写依赖 → 无限循环；多写不必要的依赖 → 性能浪费。
+
+**useCallback / useMemo** — 防止不必要的重新计算
+
+这两个是性能优化手段，不是必须一开始就用。
+
+- `useCallback`：记住一个函数引用，避免每次渲染都创建新函数（传给子组件时有意义）
+- `useMemo`：记住一个计算结果，避免每次渲染都重算
+
+经验法则：**先不用，遇到明显性能问题再加。**
 
 ---
 
-### 异步数据：loading/error/success 三态模式
+### 状态管理方案：按规模选工具
 
-这是 Mindloop 里最常见的场景。生成图片、加载画廊，全是异步操作。
-
-把异步状态抽象成三个字段：
-
-```js
-const [status, setStatus] = useState('idle') // idle | loading | success | error
-const [data, setData] = useState(null)
-const [error, setError] = useState(null)
+```
+状态规模        方案          适合场景
+────────────────────────────────────────
+单个组件内      useState      DropdownOpen, inputValue
+跨几个组件      Context       当前主题、用户登录态
+全局复杂状态    Zustand       生成任务队列、图库缓存
+大型团队项目    Redux         需要严格的状态变更记录
 ```
 
-UI 根据 `status` 渲染不同内容。这是固定模式，遇到异步操作就这么写，不要即兴发挥。
+**Context 的问题**：Context 一变，所有消费它的组件都重渲染。如果把频繁变化的状态（比如生成进度 0-100%）放 Context，整个树都在抖。
 
-**受控组件**：表单的值受 State 控制。`<input value={prompt} onChange={e => setPrompt(e.target.value)} />`。输入框的值 = state，用户输入 = 触发 setState。这样你随时能拿到最新值，还能做校验。
+**Zustand 的优势**：只有订阅了某个状态片段的组件才重渲染。Mindloop 用 Zustand 管生成任务队列——进度条更新不会让参数面板重渲染。
+
+**判断标准**：这个状态需要被多少个不相邻的组件访问？只有跨组件树共享时才需要全局状态，别滥用。
+
+---
+
+### 异步状态：loading / error / success 三态模式
+
+生成图片是个异步过程，UI 必须处理三种状态：
+
+```jsx
+const [status, setStatus] = useState('idle')  // idle | loading | success | error
+const [result, setResult] = useState(null)
+const [error, setError] = useState(null)
+
+// 渲染时按状态分支
+if (status === 'loading') return <ProgressBar />
+if (status === 'error') return <ErrorMessage msg={error} />
+if (status === 'success') return <GeneratedImage src={result} />
+return <GenerateButton onClick={startGeneration} />
+```
+
+**常见错误**：用 `isLoading` 布尔值，忘了处理 error 状态，结果失败了界面还转圈。用枚举字符串强制自己想清楚所有分支。
+
+---
+
+### 受控组件：表单的状态也归 React 管
+
+```jsx
+// 受控：React 是 source of truth
+<input value={prompt} onChange={e => setPrompt(e.target.value)} />
+
+// 非受控：DOM 是 source of truth（React 不知道当前值）
+<input ref={inputRef} />
+```
+
+Mindloop 的 prompt 输入框必须是受控组件——因为生成按钮要读当前 prompt 值、字数限制要实时计算。如果用非受控，每次点生成才去 DOM 取值，就丢失了"UI 是状态函数"的好处。
 
 ---
 
 ## 5. 研发在争什么
 
-**争论一：状态应该提升到哪一层？**
+**争 1：状态该放多高？**
 
-提太高：每次状态变化，整棵子树重新渲染，性能差。提太低：需要共享时传不上去，prop drilling（props 一层一层往下传）烦死人。
+"把所有状态提到顶层"让数据流清晰，但导致顶层组件肥大，任何改动都要穿越整棵树。"状态就近放置"让组件独立，但共享时要提升（lifting state up），重构成本高。
 
-没有标准答案，看变化频率 × 共享范围。
+没有标准答案。一般策略：先就近，真的要共享时再提升或移到全局。
 
-**争论二：要不要用 Redux？**
+**争 2：用 Context 还是 Zustand？**
 
-主张用 Redux 的：规范、可预测、调试工具强。反对的：样板代码太多，Zustand 三行能搞定的事 Redux 要写二十行。现在大多数新项目选 Zustand，除非团队 > 20 人、状态非常复杂。
+Context 是 React 内置，零依赖，够简单。Zustand 有细粒度订阅，性能更好。
 
-**争论三：useEffect 的依赖数组要不要写全？**
+小项目用 Context 没问题。但如果你的 Context value 是个频繁更新的对象，Zustand 能救你很多性能调试时间。
 
-React 官方要求写全（ESLint 规则会警告）。但有时候写全了会导致无限循环——因为每次渲染产生新的函数引用，被依赖，触发重跑，再渲染……这时候需要 `useCallback` 稳定引用。这是 hooks 最难的地方，不是概念问题，是实践中会踩的坑。
+**争 3：useEffect 依赖数组怎么写？**
+
+eslint 规则要求写全所有依赖，但有时候"我就是不想在某个值变化时重跑"——这时候研发会争是否该绕过 lint 规则，用 `useRef` 存旧值，还是重新设计数据流。大多数时候需要重新设计，不是绕过规则。
+
+**争 4："把所有状态放一起" vs "按职责拆分"**
+
+```jsx
+// 反面教材：一个组件管所有事
+function GenerationPanel() {
+  const [prompt, setPrompt] = useState('')
+  const [model, setModel] = useState('gpt-4')
+  const [size, setSize] = useState('1024x1024')
+  const [isLoading, setIsLoading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [result, setResult] = useState(null)
+  const [galleryItems, setGalleryItems] = useState([])
+  const [selectedItem, setSelectedItem] = useState(null)
+  // 200行后……没人知道改哪里会影响什么
+}
+```
+
+按职责拆后，`<ParamPanel>` 管输入参数，`<GenerationStatus>` 管进度，`<Gallery>` 管图库。每个组件只订阅自己关心的状态，改动影响范围可控。
 
 ---
 
 ## 6. 考考你
 
-**题一：用你自己的话说，React 的核心逻辑是什么？**（不许用"框架"、"库"这种词，说底层逻辑）
+???+ quiz "Mindloop 的图片画廊需要展示当前选中图片的大图（任意页面都能触发）。这个"selectedImage"状态应该放在哪里？"
+    - [ ] A. 放在 Gallery 组件的 useState 里
+    - [ ] B. 放在每个图片缩略图组件的 useState 里
+    - [x] C. 放在全局状态（Zustand 或 Context）里
+    - [ ] D. 放在最顶层 App 组件的 useState 里，通过 Props 逐层传递
+    
+    ??? success "解析"
+        大图查看是一个跨组件的 UI 状态——任意地方的图片都能触发它，而显示大图的 Modal 组件在组件树的另一个位置。这种"不相邻组件需要共享"的场景正是全局状态的用武之地（C）。
+        
+        A 错：Gallery 组件不持有 Modal，关闭按钮无法修改这个状态。B 错：每个缩略图各自管自己不合理。D 是技术上可行但实际上最糟糕的——Props 要穿越十几层组件（prop drilling），这正是全局状态要解决的问题。
 
----
+???+ quiz "以下代码有什么问题？"
+    ```jsx
+    function ProgressBar({ taskId }) {
+      const [progress, setProgress] = useState(0)
+      
+      useEffect(() => {
+        const timer = setInterval(() => {
+          fetchProgress(taskId).then(p => setProgress(p))
+        }, 500)
+        return () => clearInterval(timer)
+      }, [])  // 依赖数组为空
+    }
+    ```
+    - [ ] A. 没问题，空依赖数组表示只运行一次，正确
+    - [x] B. taskId 变化时不会重新开始轮询，会一直轮询旧任务
+    - [ ] C. 应该把 setProgress 也加进依赖数组
+    - [ ] D. 应该用 useState 替代 useEffect 来处理轮询
+    
+    ??? success "解析"
+        空依赖数组 `[]` 意味着这个 effect 只在组件挂载时运行一次，永远不会因为 taskId 变化而重新执行。如果用户取消当前任务开始新任务，taskId 变了，但轮询还在盯着旧 taskId——进度条会显示错误数据。
+        
+        正确写法是把 `taskId` 加进依赖数组 `[taskId]`，这样每次 taskId 变化，旧 interval 会被清除（cleanup 函数），新 interval 重新开始。C 错：`setProgress` 是稳定引用，不需要加。
 
-**题二：Mindloop 的画廊页面，研发在讨论"图片列表的数据放哪里"。方案 A：放在 `<Gallery>` 组件的本地 State。方案 B：放在 Zustand 全局 store。**
+???+ quiz "用户在参数面板输入 prompt，同时底部状态栏实时显示字数。字数计算是个耗时操作（需要处理 emoji、中文等）。应该怎么优化？"
+    - [ ] A. 把字数计算移到 useEffect 里，异步执行
+    - [ ] B. 用 useState 单独存 charCount，每次 prompt 变化时手动更新
+    - [x] C. 用 useMemo 缓存计算结果，只在 prompt 变化时重新算
+    -
 
-你问了几个问题后，发现：这份图片数据只有画廊页面用，其他页面不需要；但画廊里有三个子组件（缩略图列表、放大预览、下载按钮）都需要读它。
-
-你会建议哪个方案？为什么？
-
----
-
-**题三：研发写了下面这段伪代码，你觉得有什么风险？**
-
-```js
-// 用户每次输入 prompt，就立刻请求 API 检查语法
-useEffect(() => {
-  fetch('/api/check-syntax', { body: prompt })
-}, [prompt])
-```
-
-用你对 useEffect 的理解，说出这个设计的问题。
-
----
-
-**题四：你接手了一个老组件，发现里面有 20 个 useState，管着参数面板的所有状态（prompt、model、width、height、style、seed……），加上 loading/error/result。研发说"状态太多，组件太重"。**
-
-你能说出这是哪个问题的症状，以及一个可能的解法方向吗？（不需要写代码，说思路）
 
 <div class="chapter-status" data-chapter="chapter-08">
   <button class="status-btn done">✓ 读完了</button>

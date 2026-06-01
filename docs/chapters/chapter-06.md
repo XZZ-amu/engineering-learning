@@ -1,261 +1,264 @@
-# API 设计：让两个程序能对话的合约
+# API 设计：让两个系统能说上话
 
 ## 1. 一句话本质
 
-**API 是两个程序之间的合约：你按这个格式问，我按这个格式答，我们永远不需要知道对方的内部实现。**
+**API 是两个系统之间的合同：你按格式提问，我按格式回答，双方不需要知道对方内部怎么运作。**
 
-所有 RESTful 规范、请求结构、错误码、版本管理，都是在把这份"合约"写得更清晰、更不容易产生歧义。
+这句话能推导出一切——为什么要规范 URL、为什么有状态码、为什么要版本管理。所有这些都是在回答同一个问题：怎么让"合同"足够清晰，让任何陌生人拿到文档就能用？
 
 ---
 
 ## 2. 为什么必须这样
 
-想象没有统一 API 规范的世界：
+想象没有 API 规范会发生什么。
 
-Replicate 的图片生成接口叫 `/doGenerate`，下次叫 `/run_image`，参数有时叫 `prompt`，有时叫 `text_input`。你调通了今天的接口，明天他们改了实现，你的代码全坏掉。
+你在用 Claude Code 调 Stability AI 生图，对方的接口是这样的：
 
-更糟的是：你不知道失败是因为你的请求格式错了，还是他们服务器挂了，还是你的 API Key 过期了——返回的都是一串看不懂的文字。
+```
+/doGenerateImage?img_type=jpg&prompt_text=a cat
+/getMyImages?user=123&fetch_all=true
+/image_delete?id=456
+```
 
-**问题本质是：双方没有共同语言。** RESTful 不是某个公司发明的规矩，是行业被这些问题逼出来的共识——当所有人都说同一种语言，接入成本从"读源码"变成"读文档"。
+第一个接口用 `img_type`，第二个用 `fetch_all`，第三个叫 `image_delete`。都能用，但你每次调新接口都得重新猜——参数叫什么？是 GET 还是 POST？出错了返回什么？
+
+更严重的问题：你调了三个月，对方悄悄把 `/doGenerateImage` 改成了 `/generate`，你的产品直接崩了。
+
+**没有规范，API 就是一盒随机巧克力——不知道咬开是什么。**
+
+RESTful 就是业界为了解这个问题，大家约定好的一套写法。不是强制标准，是"大家都这么写，新人就能看懂"的协议。
 
 ---
 
 ## 3. 概念地图
 
 ```
-API 合约
+API 合同
+├── 怎么找到资源（URL 设计）
+│   ├── 资源名（名词，不是动词）
+│   ├── Path params（指定是哪一个）
+│   └── Query params（过滤/排序/分页）
 │
-├── 你怎么说（请求 Request）
-│   ├── 去哪里找 → URL（资源地址）
-│   │   ├── 路径参数 /notes/{id}  → 指定某一个资源
-│   │   └── 查询参数 ?page=2      → 过滤/排序/分页
-│   ├── 你要干什么 → Method（动词）
-│   │   └── GET / POST / PUT / DELETE
-│   ├── 你是谁 → Headers（元信息）
-│   │   └── Authorization, Content-Type
-│   └── 你带了什么 → Body（内容）
-│       └── 只有 POST/PUT 才有
+├── 想对资源做什么（HTTP 动词）
+│   ├── GET    → 查
+│   ├── POST   → 创建
+│   ├── PUT    → 整体替换
+│   └── DELETE → 删除
 │
-└── 我怎么回（响应 Response）
-    ├── 结果状态 → Status Code（2xx/4xx/5xx）
-    ├── 返回内容 → Response Body（JSON）
-    └── 特殊场景 → 分页、错误体
+├── 请求里带什么（Request）
+│   ├── Headers（身份证 + 说明语言）
+│   └── Body（具体内容，POST/PUT 时用）
+│
+├── 回来得到什么（Response）
+│   ├── Status Code（第一秒判断成功/失败）
+│   └── Body（实际数据 + 分页信息）
+│
+└── 合同版本（Version）
+    └── 接口变化时，不破坏老用户
 ```
 
-**版本管理**是在这整个合约上盖一个"时间戳"，让合约可以演进而不破坏已有调用方。
+这些概念不是并列的，是同一件事的不同侧面：URL 说"找谁"，动词说"干什么"，Headers 说"我是谁/用什么格式"，Body 说"具体内容"，Status Code 说"成没成"。
 
 ---
 
 ## 4. 逐个概念深入
 
-### URL：你去哪里，找什么
+### 资源 + URL 设计：用名词，不用动词
 
-RESTful 的核心思想：**URL 是名词（资源地址），Method 是动词（你要对它干什么）。**
+RESTful 的核心直觉：**URL 描述"东西是什么"，动词描述"对它做什么"**。
 
+❌ 差的设计（动词混进 URL）：
 ```
-好的设计：
-GET    /images          → 获取图片列表
-POST   /images          → 生成一张新图片
-GET    /images/abc123   → 获取某张图片
-DELETE /images/abc123   → 删除某张图片
-
-差的设计：
-GET  /getImages
 POST /createImage
-GET  /deleteImage?id=abc123   ← 用 GET 做删除，灾难
-POST /doImageGeneration       ← 动词混进 URL
+GET  /getImages
+POST /deleteImage?id=123
 ```
 
-为什么不能把动词放 URL？因为 URL 代表"一个东西在哪"，不代表"对它做什么"——就像餐厅菜单只写"宫保鸡丁"，不写"请帮我做宫保鸡丁"。
+✅ 好的设计（URL 是名词，动作靠 HTTP 方法区分）：
+```
+POST   /images          → 创建图片
+GET    /images          → 查列表
+GET    /images/123      → 查单个
+DELETE /images/123      → 删除
+```
 
-**路径参数 vs 查询参数**——这两个经常混淆：
+Stability AI 的真实 API 就是这个结构：`POST /v1/generation/{engine_id}/text-to-image`。`generation` 是资源，`text-to-image` 是子类型，动作是 `POST`（创建一次生成任务）。
 
-- `/images/abc123`：路径参数，指定的是**具体某一个**资源，ID 是资源身份的一部分
-- `/images?style=anime&page=2`：查询参数，是对资源列表的**过滤和修饰**，不影响"去哪里"
+**路径里的 `{engine_id}` 是 Path Params**——它指定"是哪一个资源"，这个值是必须的、定位性的。
 
-判断用哪个：如果去掉这个参数，请求就指向不同的资源→路径参数。如果去掉只是结果变多/变少→查询参数。
+**URL 末尾的 `?style=anime&limit=20` 是 Query Params**——用来过滤、排序、分页，是可选的修饰条件。
+
+区别口诀：找到谁 → path param；对谁做什么筛选 → query param。
 
 ---
 
-### Method：你要干什么
+### HTTP 动词：语义契约
 
-```
-GET    → 读，不改变任何数据（安全的，可以随便调）
-POST   → 创建新资源（每次调都会产生新东西）
-PUT    → 替换整个资源（把收藏的 note 全量更新）
-PATCH  → 局部修改（只改 note 的标题）
-DELETE → 删除
-```
+| 动词 | 含义 | 幂等？ |
+|------|------|--------|
+| GET | 查，不改数据 | ✓ 多次调结果一样 |
+| POST | 创建新资源 | ✗ 每次调创建新的 |
+| PUT | 整体更新 | ✓ |
+| PATCH | 局部更新 | 通常是 |
+| DELETE | 删除 | ✓ |
 
-研发最常争的：**POST 还是 PUT/PATCH**？
-
-简单判断：这次操作是"产生一个新东西"还是"修改一个已有的东西"？生成图片→POST（每次都产生新图）；修改图片的收藏状态→PATCH（修改已有资源的某个字段）。
+**幂等**的意义：GET/DELETE 出错了可以放心重试。POST 出错了重试可能创建两条重复记录——这是网络超时时的常见 bug。
 
 ---
 
-### Headers：你是谁，你说的是什么语言
+### 请求结构：Headers + Body
 
-Headers 是请求的"元信息"，不是业务数据本身。最重要的两个：
+调 Replicate API 时，一个真实请求长这样：
 
 ```
-Authorization: Bearer sk-abc123   → 你是谁（认证）
-Content-Type: application/json    → 你带来的 body 是什么格式
+POST https://api.replicate.com/v1/predictions
+
+Headers:
+  Authorization: Token r8_abc123...   ← 身份证
+  Content-Type: application/json      ← 告诉对方 Body 是 JSON
+
+Body:
+{
+  "version": "stability-ai/sdxl:...",
+  "input": { "prompt": "a cat in space" }
+}
 ```
 
-**为什么认证放 Header 不放 URL？** 因为 URL 会出现在日志、浏览器历史、分享链接里。把 API Key 放 URL 等于把密码印在 T 恤上。
+**Headers** 是元信息，讲"我是谁、我们用什么语言沟通"。最常见的两个：
+- `Authorization`：认证（API Key 或 Bearer Token，详见认证章节）
+- `Content-Type`：Body 的格式，通常是 `application/json`
+
+**Body** 是实际请求内容，只有 POST/PUT/PATCH 才有。GET 请求的"参数"全部放 Query Params 里，Body 是空的。
 
 ---
 
-### Response：我怎么回你
+### 响应结构：Status Code 是第一信号
 
-**Status Code 是最重要的响应信息。** 在看 body 之前，先看状态码。
+状态码是合同里最重要的一条：**不看 Body，只看状态码，就知道成功还是失败**。
 
 ```
 2xx → 成功
-  200 OK           → 普通成功
-  201 Created      → 创建成功（POST 之后）
-  204 No Content   → 成功但没有返回体（DELETE 之后）
+  200 OK           → 查询/更新成功
+  201 Created      → 创建成功（POST 后应该返回这个）
+  204 No Content   → 删除成功，没有返回体
 
 4xx → 你的问题
-  400 Bad Request  → 你的请求格式/参数有问题
-  401 Unauthorized → 没认证（没带 token 或 token 错）
-  403 Forbidden    → 认证了但没权限
+  400 Bad Request  → 参数格式错了
+  401 Unauthorized → 没带 Token 或 Token 无效
+  403 Forbidden    → 有 Token 但没权限
   404 Not Found    → 资源不存在
-  429 Too Many Requests → 超频率限制（调 AI API 常见）
+  429 Too Many Requests → 超频率限制
 
-5xx → 我的问题
-  500 Internal Server Error → 服务器炸了
+5xx → 对方的问题
+  500 Internal Server Error → 服务器挂了
   503 Service Unavailable   → 服务暂时不可用
 ```
 
-**4xx 和 5xx 的区别很关键**：4xx 是你需要修改请求再试，5xx 是你等一会儿重试就行。
+4xx 和 5xx 的区别至关重要：4xx 是你的问题，改请求参数；5xx 是对方的问题，等一会重试。Claude Code 调 API 报错时，第一件事就是看这个数字。
 
-**错误 body 的设计**——好的错误体应该告诉你"怎么修":
+**Response Body 的结构**，好的 API 会保持一致：
 
 ```json
-好的错误体：
-{
-  "error": {
-    "code": "INVALID_PROMPT",
-    "message": "Prompt cannot be empty",
-    "param": "prompt"
-  }
-}
+// 成功
+{ "data": { "id": "gen_123", "url": "https://..." }, "meta": {...} }
 
-差的错误体：
-{ "success": false }   ← 完全不知道哪里错了
+// 失败
+{ "error": { "code": "invalid_prompt", "message": "Prompt 超过最大长度" } }
 ```
 
-**分页**——当列表可能有几千条时，不能一次全返回：
+**分页**：查列表时数据可能有几千条，不能一次全返回。标准做法是返回 `cursor` 或 `page` 信息：
 
-```
-请求：GET /images?page=2&per_page=20
-响应：
+```json
 {
   "data": [...],
-  "pagination": {
-    "page": 2,
-    "per_page": 20,
-    "total": 347,
-    "has_next": true
-  }
+  "pagination": { "next_cursor": "abc", "has_more": true }
 }
 ```
 
 ---
 
-### 版本管理：合约可以升级，但不能突然变卦
+### 版本管理：为什么要 /v1/
 
-你发布了 `/images` 接口，一百个用户在用。现在你要改返回格式。如果直接改，所有用户的代码都坏掉——这叫 **Breaking Change**（破坏性变更）。
+你发布了 API，有 100 个用户在调。三个月后你要改一个参数名——旧用户立刻全崩。
 
-解法：**版本号放 URL**。
+版本管理解决的问题：**让新旧合同同时有效，用户自己选什么时候升级**。
 
-```
-/v1/images    ← 老版本继续跑，不动
-/v2/images    ← 新版本，新格式
-```
+最常见做法是 URL 里加版本号：`/v1/images`、`/v2/images`。v1 和 v2 可以并行运行一段时间，给用户迁移窗口。
 
-什么时候必须升版本？当你**删除了字段、改了字段名、改了字段类型**时。新增字段通常不需要——调用方会忽略它们不认识的字段。
+Stability AI 就是这么做的——`/v1/generation/...` 里有明确的 v1。Replicate 的 API 也是 `/v1/predictions`。
 
-Stability AI、Replicate 都这么做，这不是谨慎，是基本职业素养。
-
----
-
-### 认证：先验明正身（预告）
-
-现在先知道两个：
-
-- **API Key**：一串固定字符串，放 Header。简单，适合服务器对服务器调用。`Authorization: Bearer sk-xxxxx`
-- **Bearer Token**：用户登录后拿到的临时令牌。适合"用户调自己的数据"场景。
-
-Replicate 用 API Key，你调 Mindloop 自己的后端会用 Bearer Token。认证章节会展开讲。
+版本出现在 URL 里是最直观的，但也有人放在 Header 里（`API-Version: 2024-01`，Stripe 就这么做）。URL 版本更显眼，Header 版本更"RESTful纯粹"，两种都可以——但要选一种，整个产品统一。
 
 ---
 
 ## 5. 研发在争什么
 
-**争一：错误码用 HTTP Status Code 还是自定义业务码？**
+**争议一：PUT 还是 PATCH？**
 
-有人说：HTTP 状态码够用了，400 就是客户端错；有人说：业务太复杂，需要 `code: 10023` 这种细粒度的业务错误码。
+PUT 要求传整个对象，PATCH 只传要改的字段。实践中很多团队嫌麻烦，全用 POST——"反正也能用"。代价是失去语义，调用方不知道什么时候会覆盖什么。
 
-代价：纯 HTTP 状态码简洁，但难以区分"参数格式错"和"参数值不合法"；业务码灵活，但客户端要维护一张错误码映射表，文档要一直跟着更新。
+**争议二：错误信息给多少细节？**
 
-**实际结论**：两者结合——HTTP 状态码告诉你"谁的问题"，body 里的 code 告诉你"具体什么问题"。
+返回 `"error": "invalid input"` 是安全的，但调用方不知道哪里错了。返回 `"error": "prompt contains banned words: [xxx]"` 是友好的，但可能泄露内部逻辑。安全要求高的场景（金融、医疗）倾向于模糊错误信息，开发者工具倾向于详细。
 
----
+**争议三：嵌套 URL 要嵌套多深？**
 
-**争二：分页用 page/per_page 还是 cursor-based？**
+`/users/123/collections/456/images/789` 在语义上很清晰，但太深了之后会变成噩梦——改一层结构，所有深层 URL 都失效。实践中很多团队只嵌套一层：`/collections/456`，然后用 query param 过滤 `?user_id=123`。
 
-`page=2` 方式直观，但数据在翻页时新增了记录，你第 2 页可能会看到第 1 页的内容（漏或重）。
+**争议四：API 版本放 URL 还是 Header？**
 
-Cursor-based（游标分页）：`after=abc123`，意思是"给我 abc123 这条之后的数据"，不受新增数据影响。代价是不能跳页（不能直接跳到第 50 页）。
-
-**判断标准**：数据是静态/不频繁更新的（历史订单）→ page/per_page 够用；数据实时变化（信息流、生成记录）→ cursor-based 更稳。
-
----
-
-**争三：资源嵌套 URL 要深还是浅？**
-
-```
-深：/users/123/collections/456/images/789
-浅：/images/789
-```
-
-深 URL 语义清晰，但 URL 太长，而且改了用户模型就要改 URL。浅 URL 简洁，但需要在 body 里传关联关系。
-
-**实际结论**：超过两级嵌套就该考虑拆平——`/collections/456/images` 可以，`/users/123/collections/456/images/789` 就过了。
+放 URL（`/v2/`）：直观、可以直接粘贴 URL 测试、浏览器可见。  
+放 Header（`API-Version: 2`）：URL 保持"干净"，理论上更 RESTful。  
+现实中放 URL 更常见，因为对开发者更友好。
 
 ---
 
 ## 6. 考考你
 
-**Q1：用你自己的话，一句话解释 API 规范解决的核心问题是什么？**
+???+ quiz "你在为 Mindloop 设计「收藏一篇笔记」的 API，应该怎么设计？"
+    - [ ] A. `POST /addFavorite?noteId=123`
+    - [ ] B. `GET /favorites/add/123`
+    - [x] C. `POST /notes/123/favorites`
+    - [ ] D. `PUT /notes/favorite?id=123`
+    
+    ??? success "解析"
+        C 是正确的。"收藏"可以理解为在 note 下创建一个 favorite 资源，所以用 POST，路径是 `/notes/{id}/favorites`。
+        
+        A 的问题是把动词（add）混进了 URL，违反 REST 命名规范。
+        
+        B 的问题是用 GET 触发了"创建"操作——GET 语义是查询，不应该有副作用，更不应该写数据。
+        
+        D 的问题是 PUT 语义是"整体替换"，而收藏是创建一个新关系，应该用 POST。
 
-（提示：不是"让接口更好看"，而是关于"谁的责任是什么"）
+???+ quiz "你调 Replicate API 生成图片，返回了 429 状态码。你应该怎么处理？"
+    - [ ] A. 检查 prompt 参数格式，可能传错了
+    - [ ] B. 换一个 API Key，当前的可能已经失效
+    - [x] C. 等待一段时间后重试，当前请求频率超限了
+    - [ ] D. 这是服务器故障，联系 Replicate 客服
+    
+    ??? success "解析"
+        429 是 `Too Many Requests`，属于 4xx——这是"你的问题"，具体是调用太频繁超过了速率限制。
+        
+        正确处理是等待（通常 response header 里有 `Retry-After` 告诉你等多少秒），然后重试。
+        
+        A 是 400 的处理方式（参数格式错误）。B 是 401 的处理方式（认证失败）。D 是 5xx 的处理方式（服务器故障）。看到错误第一件事，永远是先看状态码数字。
 
----
+???+ quiz "Mindloop 要在现有 API 里把「笔记」的 `title` 字段改名为 `name`，且有外部用户在调这个接口。最合理的做法是？"
+    - [ ] A. 直接改，通知用户更新代码
+    - [ ] B. 在同一个接口里同时支持 `title` 和 `name` 两个字段，永久兼容
+    - [x] C. 发布 `/v2/notes`，v2 里用 `name`，v1 保留一段时间后废弃
+    - [ ] D. 不能改，API 一旦发布字段名就不能变
+    
+    ??? success "解析"
+        C 是标准做法。版本管理的核心价值就是这个——让破坏性变更（breaking change）在新版本里发生，给旧用户迁移时间，而不是强制所有人同步升级。
+        
+        A 会直接破坏所有已接入的用户，是最差选择。
+        
+        B 听起来友好，但长期维护两个字段会造成混乱，而且"永久兼容"意味着技术债永远还不清。
+        
+        D 是过度保守，API 设计可以演进，版本管理就是为了解决这个问题。
 
-**Q2：你在给 Mindloop 设计"AI 生成笔记摘要"功能的 API，研发给了你这个方案：**
-
-```
-POST /generateSummary
-Body: { "note_id": "abc123" }
-返回: { "result": "ok", "data": "这是摘要内容" }
-```
-
-**你觉得哪里可以改？为什么？**
-
-（提示：URL 的问题、返回的问题各想一个）
-
----
-
-**Q3：你在接入 Replicate API 生成图片，请求发出去，收到了 `403` 状态码。你的第一反应是重试还是检查代码？为什么？如果是 `503` 呢？**
-
----
-
-**Q4：Mindloop 上线了 `/v1/images` 接口，有用户在用。现在要新增一个 `style` 字段到返回体。需要升版本到 v2 吗？如果是把 `created_at` 从时间戳改成 ISO 字符串格式呢？**
-
-<div class="chapter-status" data-chapter="chapter-06">
+<div class="chapter-status" data-chapter="chapter-02">
   <button class="status-btn done">✓ 读完了</button>
   <button class="status-btn stuck">✗ 还没懂</button>
 </div>
