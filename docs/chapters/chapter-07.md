@@ -190,3 +190,8 @@ OSS 上的私密文件，直接访问会 403。签名 URL 是：服务端生成�
 **3. Mindloop 要做一个功能：用户可以分享笔记给外部，但只有付费用户才能查看笔记里的高清图片。这个需求涉及文件存储的哪个机制？大概怎么实现？**
 
 **4. 你的产品是一个公司内部的设计资产管理工具，用户都在公司网络内，要不要上 CDN？为什么？**
+
+<div class="chapter-status" data-chapter="chapter-07">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

@@ -53,9 +53,22 @@ def generate_chapter(issue: dict) -> str:
     return response.content[0].text
 
 
+def ensure_status_button(content: str, issue_number: int) -> str:
+    """确保教案末尾有状态按钮，如果 AI 没生成就自动追加。"""
+    status_html = f'''
+<div class="chapter-status" data-chapter="chapter-{issue_number:02d}">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>'''
+    if "chapter-status" not in content:
+        content = content.rstrip() + "\n\n" + status_html + "\n"
+    return content
+
+
 def save_chapter(issue: dict, content: str) -> Path:
     """将生成的教案保存到文件。"""
     CHAPTERS_DIR.mkdir(parents=True, exist_ok=True)
+    content = ensure_status_button(content, issue['number'])
     filename = f"chapter-{issue['number']:02d}.md"
     filepath = CHAPTERS_DIR / filename
     filepath.write_text(content, encoding="utf-8")

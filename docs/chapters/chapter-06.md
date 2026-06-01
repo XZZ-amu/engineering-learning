@@ -254,3 +254,8 @@ Body: { "note_id": "abc123" }
 ---
 
 **Q4：Mindloop 上线了 `/v1/images` 接口，有用户在用。现在要新增一个 `style` 字段到返回体。需要升版本到 v2 吗？如果是把 `created_at` 从时间戳改成 ISO 字符串格式呢？**
+
+<div class="chapter-status" data-chapter="chapter-06">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

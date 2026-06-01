@@ -215,3 +215,8 @@ SD 系列生态好（LoRA/ControlNet 资源多），FLUX 质量更高但生态�
 ---
 
 **Q4：产品经理说"我们要给用户一个 prompt 输入框，让他随便写"。你觉得这个设计有什么工程风险，为什么不直接把用户输入喂给模型是个坏主意？你会怎么设计 prompt 模板来解决这个问题？**
+
+<div class="chapter-status" data-chapter="chapter-09">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

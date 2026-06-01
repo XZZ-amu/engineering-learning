@@ -237,3 +237,8 @@ WebSocket：服务端主动推，实时性好，但有连接状态，横向扩�
 
 **4. 产品高峰期排队 500 个任务，用户等了 20 分钟，研发说"加 GPU"能解决——但你觉得加 GPU 之前应该先问什么？**  
 （提示：GPU 到底在干嘛？是真的在算，还是在等启动？）
+
+<div class="chapter-status" data-chapter="chapter-13">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

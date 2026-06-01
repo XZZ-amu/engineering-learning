@@ -212,3 +212,8 @@ async function generateImage(prompt) {
 **3. 用户反馈"有时候点了生成，转圈很久然后说失败，但去图库里发现图片其实生成好了"。这是什么问题，根子在哪？**
 
 提示：从幂等性和超时的角度思考。
+
+<div class="chapter-status" data-chapter="chapter-05">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

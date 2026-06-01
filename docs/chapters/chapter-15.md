@@ -214,3 +214,8 @@ GDPR（欧盟数据保护条例）的核心是一条权利：**用户可以要�
 **3.** 产品经理写了这条 PRD：「免费用户每天可生成 5 次，超出后提示升级」。这条需求缺少了哪些安全相关的细节，导致研发无法实现完整的防护？（至少说出 3 个缺失点）
 
 **4.** 一个用户投诉：「我在 Mindloop 里写了很私人的日记，你们有没有把我的内容给别人看？」你需要向研发确认哪些事情，才能回答这位用户？
+
+<div class="chapter-status" data-chapter="chapter-15">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

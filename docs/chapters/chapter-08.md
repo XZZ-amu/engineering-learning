@@ -235,3 +235,8 @@ useEffect(() => {
 **题四：你接手了一个老组件，发现里面有 20 个 useState，管着参数面板的所有状态（prompt、model、width、height、style、seed……），加上 loading/error/result。研发说"状态太多，组件太重"。**
 
 你能说出这是哪个问题的症状，以及一个可能的解法方向吗？（不需要写代码，说思路）
+
+<div class="chapter-status" data-chapter="chapter-08">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

@@ -237,3 +237,8 @@ JWT 听起来更"现代"，但有个真实代价：无法主动注销。用户�
 **Q4：产品讨论：AI 生图产品，要上线付费。有人主张订阅制（基础会员 30 元/月 100 次，Pro 99 元无限），有人主张积分制（1 元 10 积分，生成一张图扣 5 积分）。你作为设计师，会怎么判断哪个方案更适合你们当前阶段？你需要知道哪些信息才能判断？**
 
 > 这道题没有标准答案，考的是你能不能说出"判断这件事需要哪些变量"。
+
+<div class="chapter-status" data-chapter="chapter-11">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

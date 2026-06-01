@@ -201,3 +201,8 @@ Mindloop 画廊页滑动卡顿，你和研发怎么排查？
 （提示：不是问他对不对，而是问清楚决策依据是什么、代价是什么）
 
 **3. 你设计了一个功能：用户在生成图片的等待页，可以实时看到生成进度（0% → 100%）。研发
+
+<div class="chapter-status" data-chapter="chapter-14">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

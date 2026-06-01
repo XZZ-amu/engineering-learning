@@ -243,3 +243,8 @@ Migration 是一段描述"表结构如何变化"的代码，可以执行（apply
 **4. 产品提了新需求："给作品加一个'是否公开'的开关，默认私密。"研发说这个改动要写一个 migration，需要两天。你觉得这合理吗？他在担心什么？**
 
 思考方向：加一列听起来很简单，但生产环境的大表上，研发在担心什么风险？
+
+<div class="chapter-status" data-chapter="chapter-10">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>

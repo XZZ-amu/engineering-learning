@@ -219,3 +219,8 @@ WebSocket 的第一步借用了 HTTP：客户端发一个特殊的 HTTP 请求�
 ```
 
 能画出来，这部分就算真的学会了。
+
+<div class="chapter-status" data-chapter="chapter-12">
+  <button class="status-btn done">✓ 读完了</button>
+  <button class="status-btn stuck">✗ 还没懂</button>
+</div>
